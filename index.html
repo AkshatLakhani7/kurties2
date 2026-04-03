@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kurti Size Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root {
+  --bg: #FBF4EC;
+  --primary: #C2714F;
+  --dark: #2C1A0E;
+  --card: #FFFFFF;
+  --border: #E8D5C4;
+  --accent: #7B3F00;
+  --muted: #A07050;
+  --shadow: 0 2px 16px rgba(44,26,14,0.09);
+  --radius: 14px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--dark); min-height: 100vh; }
+
+.app-header {
+  background: linear-gradient(135deg, #7B3F00, #C2714F);
+  color: white; padding: 16px 20px 12px;
+  text-align: center; position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+}
+.app-header h1 { font-family: 'Playfair Display', serif; font-size: 1.4rem; }
+.app-header .date-tag { font-size: 0.72rem; opacity: 0.85; margin-top: 2px; }
+
+.tabs {
+  display: flex; background: #fff;
+  border-bottom: 2px solid var(--border);
+  position: sticky; top: 66px; z-index: 99;
+}
+.tab-btn {
+  flex: 1; padding: 11px 4px; background: none; border: none;
+  font-family: 'Nunito', sans-serif; font-size: 0.78rem; font-weight: 700;
+  color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s;
+}
+.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+.page { display: none; padding: 12px; }
+.page.active { display: block; }
+
+.search-bar { margin-bottom: 12px; }
+.search-bar input {
+  width: 100%; padding: 10px 14px; border: 1.5px solid var(--border);
+  border-radius: 10px; font-family: 'Nunito', sans-serif;
+  font-size: 0.88rem; background: white; color: var(--dark); outline: none;
+}
+.search-bar input:focus { border-color: var(--primary); }
+
+.kurti-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
+
+.kurti-card {
+  background: var(--card); border: 1.5px solid var(--border);
+  border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow);
+}
+.kurti-card.has-data { border-color: var(--primary); }
+.kurti-card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.kurti-card-name { font-family: 'Playfair Display', serif; font-size: 1rem; color: var(--accent); }
+.kurti-total-badge {
+  background: var(--primary); color: white; font-size: 0.68rem;
+  font-weight: 700; padding: 2px 8px; border-radius: 20px; display: none;
+}
+.kurti-card.has-data .kurti-total-badge { display: inline-block; }
+
+.sizes-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+.size-cell { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.size-lbl { font-size: 0.68rem; font-weight: 700; color: #ccc; }
+.size-lbl.active { color: var(--primary); }
+.size-controls { display: flex; align-items: center; gap: 2px; }
+.ctrl {
+  width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--border);
+  background: #F5E6D8; font-size: 0.95rem; font-weight: 700; color: var(--accent);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  user-select: none; transition: all 0.1s; line-height: 1;
+}
+.ctrl:active { transform: scale(0.85); }
+.ctrl:hover { background: #EDD5C0; border-color: var(--primary); }
+.count-box {
+  width: 24px; height: 22px; text-align: center; font-size: 0.78rem; font-weight: 700;
+  color: #ccc; background: #F5E6D8; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+}
+.count-box.active { background: var(--primary); color: white; }
+.reset-kurti-btn {
+  font-size: 0.68rem; color: var(--muted); background: none; border: none;
+  cursor: pointer; text-decoration: underline; padding: 0; font-family: 'Nunito', sans-serif;
+}
+
+/* SUMMARY */
+.stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+.stat-card {
+  background: white; border: 1.5px solid var(--border);
+  border-radius: var(--radius); padding: 12px; text-align: center; box-shadow: var(--shadow);
+}
+.stat-num { font-family: 'Playfair Display', serif; font-size: 1.7rem; color: var(--primary); }
+.stat-label { font-size: 0.68rem; color: var(--muted); font-weight: 700; margin-top: 2px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.action-btn {
+  flex: 1; min-width: 110px; padding: 10px; border: none; border-radius: 10px;
+  font-family: 'Nunito', sans-serif; font-size: 0.8rem; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 5px; transition: opacity 0.15s;
+}
+.action-btn:hover { opacity: 0.88; }
+.btn-copy { background: var(--primary); color: white; }
+.btn-pdf { background: #D32F2F; color: white; }
+.btn-wa { background: #25D366; color: white; }
+.btn-save { background: var(--accent); color: white; }
+.btn-reset { background: #fff; color: var(--muted); border: 1.5px solid var(--border); }
+.summary-box { background: white; border: 1.5px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); }
+.summary-box pre { font-family: monospace; font-size: 0.88rem; line-height: 2; white-space: pre-wrap; color: var(--dark); }
+.summary-empty { text-align: center; color: var(--muted); font-style: italic; font-size: 0.88rem; padding: 20px 0; }
+
+/* HISTORY */
+.history-list { display: flex; flex-direction: column; gap: 10px; }
+.history-item {
+  background: white; border: 1.5px solid var(--border);
+  border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow);
+}
+.history-date { font-size: 0.72rem; color: var(--muted); font-weight: 700; margin-bottom: 6px; }
+.history-preview {
+  font-family: monospace; font-size: 0.78rem; color: var(--dark);
+  white-space: pre-wrap; max-height: 90px; overflow: hidden;
+}
+.history-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.hist-btn {
+  padding: 6px 12px; border-radius: 8px; border: none;
+  font-family: 'Nunito', sans-serif; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+}
+.hist-copy { background: var(--primary); color: white; }
+.hist-edit { background: var(--accent); color: white; }
+.hist-del { background: #fff; color: #D32F2F; border: 1.5px solid #D32F2F; }
+.no-history { text-align: center; color: var(--muted); font-style: italic; padding: 30px; }
+
+/* EDIT MODAL */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55); z-index: 200;
+  overflow-y: auto; padding: 16px;
+}
+.modal-overlay.show { display: block; }
+.modal-box {
+  background: white; border-radius: var(--radius);
+  padding: 0; width: 100%; max-width: 700px;
+  margin: 0 auto; box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+  overflow: hidden;
+}
+.modal-header {
+  background: linear-gradient(135deg, #7B3F00, #C2714F);
+  color: white; padding: 14px 18px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.modal-header h2 { font-family: 'Playfair Display', serif; font-size: 1.1rem; }
+.modal-close {
+  background: rgba(255,255,255,0.2); border: none; color: white;
+  width: 30px; height: 30px; border-radius: 50%; font-size: 1.1rem;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.modal-body { padding: 14px; max-height: 70vh; overflow-y: auto; }
+.modal-kurti-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.modal-footer {
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  display: flex; gap: 10px; background: #fafafa;
+}
+.modal-save-btn {
+  flex: 1; background: var(--primary); color: white; border: none;
+  border-radius: 10px; padding: 12px; font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem; font-weight: 700; cursor: pointer;
+}
+.modal-save-btn:hover { background: var(--accent); }
+.modal-cancel-btn {
+  background: #fff; color: var(--muted); border: 1.5px solid var(--border);
+  border-radius: 10px; padding: 12px 20px; font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem; font-weight: 700; cursor: pointer;
+}
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--dark); color: white;
+  padding: 10px 22px; border-radius: 24px;
+  font-size: 0.85rem; font-weight: 600;
+  z-index: 9999; transition: transform 0.3s; pointer-events: none;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <h1>🧣 Kurti Size Tracker</h1>
+  <div class="date-tag" id="dateTag"></div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('s1',this)">Section 1</button>
+  <button class="tab-btn" onclick="switchTab('s2',this)">Section 2</button>
+  <button class="tab-btn" onclick="switchTab('sum',this)">Summary</button>
+  <button class="tab-btn" onclick="switchTab('hist',this)">History</button>
+</div>
+
+<div class="page active" id="page-s1">
+  <div class="search-bar"><input type="text" placeholder="🔍 Search kurti..." oninput="filterGrid('grid1',this.value)"></div>
+  <div class="kurti-grid" id="grid1"></div>
+</div>
+
+<div class="page" id="page-s2">
+  <div class="search-bar"><input type="text" placeholder="🔍 Search kurti..." oninput="filterGrid('grid2',this.value)"></div>
+  <div class="kurti-grid" id="grid2"></div>
+</div>
+
+<div class="page" id="page-sum">
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-num" id="stTotal">0</div><div class="stat-label">Total Pieces</div></div>
+    <div class="stat-card"><div class="stat-num" id="stActive">0</div><div class="stat-label">Kurtis Active</div></div>
+    <div class="stat-card"><div class="stat-num" id="stEntries">0</div><div class="stat-label">Size Entries</div></div>
+  </div>
+  <div class="toolbar">
+    <button class="action-btn btn-copy" onclick="doCopy()">📋 Copy</button>
+    <button class="action-btn btn-pdf" onclick="doPDF()">📄 PDF</button>
+    <button class="action-btn btn-wa" onclick="doWA()">💬 WhatsApp</button>
+  </div>
+  <div class="toolbar">
+    <button class="action-btn btn-save" onclick="doSaveHistory()">💾 Save to History</button>
+    <button class="action-btn btn-reset" onclick="doResetAll()">🗑 Reset All</button>
+  </div>
+  <div class="summary-box"><pre id="sumPre"><span class="summary-empty">No sizes added yet...</span></pre></div>
+</div>
+
+<div class="page" id="page-hist">
+  <div class="history-list" id="histList"></div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>✏️ Edit History Entry</h2>
+      <button class="modal-close" onclick="closeEditModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-kurti-grid" id="editGrid"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-save-btn" onclick="saveEditHist()">💾 Save Changes</button>
+      <button class="modal-cancel-btn" onclick="closeEditModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SEC1 = ["BandhaniBlue","GreenBlack","CoffeeBlackPatta","Bluepaan","Rajasthani","BandhaniRed","Roma","GreenPurple","GreenBlue","Green","GreyBlackPatta","Bluey","Pink","BandhaniGreen"];
+const SEC2 = ["HarviPurple","PankhudiMaroon","PankhudiBlue","HarviGrey","PattaBlue","RajvadiWhite","PattaPurple","PattaPink","PatiPurple","WhitePatta"];
+const ALL = [...SEC1,...SEC2];
+const SZ = ["S","M","L","XL","XXL","3XL","4XL","5XL"];
+
+let state = JSON.parse(localStorage.getItem('kd3')||'{}');
+ALL.forEach(k=>{ if(!state[k]){state[k]={};SZ.forEach(s=>state[k][s]=0);} });
+function save(){ localStorage.setItem('kd3',JSON.stringify(state)); }
+
+// edit state (temporary while modal is open)
+let editState = {};
+let editIdx = -1;
+
+// Date
+const now = new Date();
+document.getElementById('dateTag').textContent = now.toLocaleDateString('en-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+// Tabs
+function switchTab(id, btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(id==='sum') renderSummary();
+  if(id==='hist') renderHistory();
+}
+
+// Build a grid of kurti cards into any container
+function buildCards(kurtis, containerId, stateObj, prefix, onChangeFn){
+  const grid = document.getElementById(containerId);
+  grid.innerHTML='';
+  kurtis.forEach(k=>{
+    const total = SZ.reduce((a,s)=>a+(stateObj[k]?stateObj[k][s]||0:0),0);
+    const card = document.createElement('div');
+    card.className='kurti-card'+(total>0?' has-data':'');
+    card.dataset.name=k.toLowerCase();
+    const safeK = k.replace(/\s/g,'_');
+    card.innerHTML=`
+      <div class="kurti-card-header">
+        <span class="kurti-card-name">${k}</span>
+        <span class="kurti-total-badge" id="${prefix}badge${safeK}">${total} pcs</span>
+      </div>
+      <div class="sizes-grid" id="${prefix}sg${safeK}"></div>
+      <button class="reset-kurti-btn" onclick="${onChangeFn==='ch'?`resetKurti('${k}','${containerId}')`:`resetEditKurti('${k}')`}">Reset</button>
+    `;
+    grid.appendChild(card);
+    const sg = document.getElementById(prefix+'sg'+safeK);
+    SZ.forEach(s=>{
+      const c = stateObj[k] ? stateObj[k][s]||0 : 0;
+      const cell=document.createElement('div');
+      cell.className='size-cell';
+      const fnCall = onChangeFn==='ch'
+        ? `ch('${k}','${s}',-1,'${containerId}')` + `' onclick_plus='ch('${k}','${s}',1,'${containerId}')`
+        : `chEdit('${k}','${s}',-1)`;
+      const fnPlus = onChangeFn==='ch'
+        ? `ch('${k}','${s}',1,'${containerId}')`
+        : `chEdit('${k}','${s}',1)`;
+      const fnMinus = onChangeFn==='ch'
+        ? `ch('${k}','${s}',-1,'${containerId}')`
+        : `chEdit('${k}','${s}',-1)`;
+      cell.innerHTML=`
+        <span class="size-lbl${c>0?' active':''}" id="${prefix}l${safeK}${s}">${s}</span>
+        <div class="size-controls">
+          <button class="ctrl" onclick="${fnMinus}">−</button>
+          <div class="count-box${c>0?' active':''}" id="${prefix}c${safeK}${s}">${c}</div>
+          <button class="ctrl" onclick="${fnPlus}">+</button>
+        </div>`;
+      sg.appendChild(cell);
+    });
+  });
+}
+
+function buildGrid(kurtis, gridId){
+  buildCards(kurtis, gridId, state, 'main', 'ch');
+}
+
+function ch(k,s,d,gridId){
+  if(!state[k]) return;
+  state[k][s]=Math.max(0,(state[k][s]||0)+d);
+  save();
+  updateCardDOM(k, s, 'main', state);
+}
+
+function updateCardDOM(k, s, prefix, stateObj){
+  const safeK = k.replace(/\s/g,'_');
+  const c = stateObj[k][s];
+  const cb=document.getElementById(prefix+'c'+safeK+s);
+  const lb=document.getElementById(prefix+'l'+safeK+s);
+  if(cb){cb.textContent=c;cb.className='count-box'+(c>0?' active':'');}
+  if(lb){lb.className='size-lbl'+(c>0?' active':'');}
+  const total=SZ.reduce((a,sz)=>a+(stateObj[k][sz]||0),0);
+  const badge=document.getElementById(prefix+'badge'+safeK);
+  if(badge) badge.textContent=total+' pcs';
+  const card=cb&&cb.closest('.kurti-card');
+  if(card) card.className='kurti-card'+(total>0?' has-data':'');
+}
+
+function resetKurti(k,gridId){
+  SZ.forEach(s=>state[k][s]=0);
+  save();
+  buildGrid(gridId==='grid1'?SEC1:SEC2,gridId);
+}
+
+function filterGrid(gridId,q){
+  document.querySelectorAll('#'+gridId+' .kurti-card').forEach(c=>{
+    c.style.display=c.dataset.name.includes(q.toLowerCase())?'':'none';
+  });
+}
+
+// SUMMARY
+function getSummary(stateObj){
+  stateObj = stateObj || state;
+  let text='',total=0,active=0,entries=0;
+  ALL.forEach(k=>{
+    if(!stateObj[k]) return;
+    const szs=SZ.filter(s=>stateObj[k][s]>0);
+    if(!szs.length) return;
+    active++; text+=k+'\n';
+    szs.forEach(s=>{const c=stateObj[k][s];total+=c;entries++;text+=(c>1?s+'('+c+')':s)+'\n';});
+    text+='\n';
+  });
+  return {text:text.trim(),total,active,entries};
+}
+
+function renderSummary(){
+  const {text,total,active,entries}=getSummary();
+  const pre=document.getElementById('sumPre');
+  if(text){pre.textContent=text;}else{pre.innerHTML='<span class="summary-empty">No sizes added yet...</span>';}
+  document.getElementById('stTotal').textContent=total;
+  document.getElementById('stActive').textContent=active;
+  document.getElementById('stEntries').textContent=entries;
+}
+
+// Parse saved text back to state object
+function textToState(text){
+  const s={};
+  ALL.forEach(k=>{s[k]={};SZ.forEach(sz=>s[k][sz]=0);});
+  let curK=null;
+  text.split('\n').forEach(line=>{
+    line=line.trim();
+    if(!line) return;
+    if(ALL.includes(line)){ curK=line; return; }
+    if(curK){
+      const m=line.match(/^(\w+)\((\d+)\)$/);
+      if(m && SZ.includes(m[1])){ s[curK][m[1]]=parseInt(m[2]); }
+      else if(SZ.includes(line)){ s[curK][line]=1; }
+    }
+  });
+  return s;
+}
+
+// ACTIONS
+function doCopy(){
+  const {text}=getSummary();
+  if(!text){toast('Nothing to copy!');return;}
+  navigator.clipboard.writeText(text).then(()=>toast('✓ Copied!'));
+}
+
+function doWA(){
+  const {text}=getSummary();
+  if(!text){toast('Nothing to share!');return;}
+  const d=now.toLocaleDateString('en-IN');
+  window.open('https://wa.me/?text='+encodeURIComponent('🧣 *Kurti Order - '+d+'*\n\n'+text),'_blank');
+}
+
+function doPDF(){
+  const {text,total}=getSummary();
+  if(!text){toast('Nothing to export!');return;}
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(123,63,0);
+  doc.text('Kurti Size Order',105,22,{align:'center'});
+  doc.setFontSize(10);doc.setFont('helvetica','normal');doc.setTextColor(160,112,80);
+  doc.text('Date: '+now.toLocaleDateString('en-IN',{year:'numeric',month:'long',day:'numeric'}),105,30,{align:'center'});
+  doc.setDrawColor(226,213,196);doc.line(15,34,195,34);
+  let y=42;
+  text.split('\n').forEach(line=>{
+    if(y>272){doc.addPage();y=20;}
+    if(!line){y+=3;return;}
+    const isSz=SZ.some(s=>line===s||line.startsWith(s+'('));
+    if(isSz){doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(44,26,14);doc.text('  '+line,20,y);}
+    else{doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(123,63,0);doc.text(line,20,y);}
+    y+=7;
+  });
+  y+=4;doc.line(15,y,195,y);
+  doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(194,113,79);
+  doc.text('Total Pieces: '+total,20,y+10);
+  doc.save('Kurti-Order-'+now.toLocaleDateString('en-IN').replace(/\//g,'-')+'.pdf');
+  toast('📄 PDF saved!');
+}
+
+function doResetAll(){
+  ALL.forEach(k=>SZ.forEach(s=>state[k][s]=0));
+  save();
+  buildGrid(SEC1,'grid1');buildGrid(SEC2,'grid2');
+  renderSummary();toast('🗑 All reset!');
+}
+
+function doSaveHistory(){
+  const {text,total}=getSummary();
+  if(!text){toast('Nothing to save!');return;}
+  const h=JSON.parse(localStorage.getItem('kHist')||'[]');
+  h.unshift({date:new Date().toLocaleString('en-IN'),text,total});
+  if(h.length>15)h.pop();
+  localStorage.setItem('kHist',JSON.stringify(h));
+  toast('💾 Saved to History!');
+}
+
+// HISTORY
+function renderHistory(){
+  const h=JSON.parse(localStorage.getItem('kHist')||'[]');
+  const list=document.getElementById('histList');
+  list.innerHTML='';
+  if(!h.length){
+    list.innerHTML='<div class="no-history">No saved history yet.<br><br>Go to Summary → tap <b>Save to History</b>.</div>';
+    return;
+  }
+  h.forEach((item,i)=>{
+    const div=document.createElement('div');
+    div.className='history-item';
+    div.innerHTML=`
+      <div class="history-date">📅 ${item.date} — ${item.total} pieces</div>
+      <div class="history-preview">${item.text.substring(0,200)}${item.text.length>200?'...':''}</div>
+      <div class="history-actions">
+        <button class="hist-btn hist-copy" onclick="copyHist(${i})">📋 Copy</button>
+        <button class="hist-btn hist-edit" onclick="openEditModal(${i})">✏️ Edit</button>
+        <button class="hist-btn hist-del" onclick="delHist(${i})">🗑 Delete</button>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+
+function copyHist(i){
+  const h=JSON.parse(localStorage.getItem('kHist')||'[]');
+  navigator.clipboard.writeText(h[i].text).then(()=>toast('✓ Copied!'));
+}
+function delHist(i){
+  const h=JSON.parse(localStorage.getItem('kHist')||'[]');
+  h.splice(i,1);
+  localStorage.setItem('kHist',JSON.stringify(h));
+  renderHistory();toast('Deleted!');
+}
+
+// EDIT MODAL with + - buttons
+function openEditModal(i){
+  const h=JSON.parse(localStorage.getItem('kHist')||'[]');
+  editIdx=i;
+  // parse saved text into editState
+  editState = textToState(h[i].text);
+  // build the grid with editState
+  buildCards(ALL,'editGrid',editState,'edit','chEdit');
+  document.getElementById('editModal').classList.add('show');
+  document.body.style.overflow='hidden';
+}
+
+function chEdit(k,s,d){
+  if(!editState[k]) return;
+  editState[k][s]=Math.max(0,(editState[k][s]||0)+d);
+  updateCardDOM(k,s,'edit',editState);
+}
+
+function resetEditKurti(k){
+  SZ.forEach(s=>editState[k][s]=0);
+  buildCards(ALL,'editGrid',editState,'edit','chEdit');
+}
+
+function closeEditModal(){
+  document.getElementById('editModal').classList.remove('show');
+  document.body.style.overflow='';
+  editIdx=-1;
+  editState={};
+}
+
+function saveEditHist(){
+  if(editIdx<0) return;
+  const h=JSON.parse(localStorage.getItem('kHist')||'[]');
+  const {text,total}=getSummary(editState);
+  h[editIdx].text=text;
+  h[editIdx].total=total;
+  h[editIdx].date=h[editIdx].date.replace(' (edited)','') + ' (edited)';
+  localStorage.setItem('kHist',JSON.stringify(h));
+  closeEditModal();
+  renderHistory();
+  toast('✓ History updated!');
+}
+
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+buildGrid(SEC1,'grid1');
+buildGrid(SEC2,'grid2');
+</script>
+</body>
+</html>
